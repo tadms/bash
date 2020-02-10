@@ -1,0 +1,216 @@
+#!/bin/bash
+
+################################################################################
+# BitBucket Functions
+################################################################################
+function bb_forks {
+  USER="$USER"
+  PASSWORD="$SSHPASS"
+  BB_API="$BB_API"
+  BB_URL="$bb_API/users/$USER/repos?limit=200"
+  REPO_JSON="$(curl -ks -u $USER:$PASSWORD $BB_URL)"
+  REPO_URLS="$(echo "$REPO_JSON" \
+  | jq -r .values[].links.clone[].href \
+  | grep -v 'ssh://')"
+  echo "$REPO_URLS"
+}
+
+function bb_cloner_forker {
+  TMP_DIR="/tmp/bb"
+  if [ -d $TMP_DIR ] ; then
+    rm -rf $TMP_DIR
+  fi
+  COUNT=1
+  TOTAL_REPOS=$(bb_forks | wc -l | xargs)
+  for fork in $(bb_forks) ; do
+    PRETTY_NAME="$(echo $fork | rev | cut -f1 -d"/" | rev | cut -f1 -d.)"
+    echo "${txtgrn}[$COUNT/$TOTAL_REPOS] - Cloning $fork to $TMP_DIR/$PRETTY_NAME${txtrst}"
+    git clone $fork $TMP_DIR/$PRETTY_NAME
+    echo ""
+    COUNT=$(($COUNT + 1))
+  done
+}
+
+function bb_repo_list {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage: repo_list <project>"
+    return 0
+  fi
+  PROJECT=$1
+  curl -ks -u $USER:$SSHPASS \
+  https://bitbucket.com/rest/api/1.0/projects/$PROJECT/repos?limit=200 #\
+  | jq -r .values[].name
+}
+
+function bb_list_clones {
+  curl -ks -u $USER:$SSHPASS \
+  $BB_API/projects/AN/repos?limit=500 \
+  | jq -r .values[].links.clone[].href \
+  | grep 'https://'
+}
+
+function bb_list_slugs {
+  curl -ks -u $USER:$SSHPASS \
+  $BB_API/projects/tadms/repos?limit=500 \
+  | jq -r .values[].slug
+}
+
+function bb_list_repo_branches {
+  local repo="$1"
+  curl -ks -u $USER:$SSHPASS \
+  $BB_API/projects/tadms/repos/$repo/branches \
+  | jq -r .values[].id | sort -u | sed 's/refs\/heads\///g' | hl master
+}
+
+function bb_list_repo_tags {
+  local repo="$1"
+  curl -ks -u $USER:$SSHPASS \
+  $BB_API/projects/tadms/repos/$repo/tags \
+  | jq -r .values[].id
+}
+
+function bb_generate_repo_list {
+  local user="$(echo $USER | tr a-z A-Z)"
+  local pass="$SSHPASS"
+  local repo_api="$BB_API/projects/tadms/repos?limit=200"
+  local repo_json="$(curl -ks -u $user:$pass $repo_api)"
+
+  local repos=$(echo $repo_json \
+    | jq -r .values[].slug \
+    | grep '^svc-')
+
+  for repo in $repos ; do
+    local repo_name="$(echo $repo_json \
+      | jq -r ".values[] | select(.slug==\"$repo\") | .name")"
+    local repo_url="$(echo $repo_json \
+      | jq -r ".values[] | select(.slug==\"$repo\") | .links.clone[].href" \
+      | grep '^https' \
+      | sed "s/$user@//g")"
+    echo "$repo_name => $repo_url"
+  done
+}
+
+# Push an inital commit at a newly created BitBucket repo
+function init_commit {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage: init_commit <repo_name>"
+    return 0
+  fi
+  START_DIR="$(pwd)"
+  NEW_REPO=$1
+  TEMPLATE_REPO="svc-template"
+  USER="$USER"
+  TMP_DIR="/tmp/repo-tmp"
+  OLD_REPO_URL="https://$USER@bitbucket.com/scm/tadms/$OLD_REPO.git"
+  NEW_REPO_URL="https://$USER@bitbucket.com/scm/tadms/$NEW_REPO.git"
+
+  rm -rf $TMP_DIR
+  mkdir $TMP_DIR
+  cd $TMP_DIR
+
+  echo ""
+  echo "${txtgrn}git clone $NEW_REPO_URL${txtrst}"
+  git clone $NEW_REPO_URL
+  echo ""
+
+  echo "${txtgrn}git clone $OLD_REPO_URL${txtrst}"
+  git clone $OLD_REPO_URL
+  echo ""
+
+  echo "${txtgrn}cd $TMP_DIR/$NEW_REPO${txtrst}"
+  cd $TMP_DIR/$NEW_REPO
+  git status
+  echo ""
+  echo "${txtgrn}cp ../$TEMPLATE_REPO/.gitignore .${txtrst}"
+  cp ../$TEMPLATE_REPO/.gitignore .
+  echo ""
+  echo "${txtgrn}ls -la${txtrst}"
+  ls -la
+  git status
+  echo "${txtgrn}All look good?  Ready to add, commit and push? [y/n]${txtrst}"
+  read ANSWER
+  if [ "$ANSWER" == "y" ] ; then
+    echo "${txtgrn}Adding...${txtrst}"
+    git add .
+    git status
+    echo "${txtgrn}Committing...${txtrst}"
+    git commit -am "initial commit"
+    echo "${txtgrn}Pushing...${txtrst}"
+    git push origin master
+  else
+    echo "${txtgrn}Exiting...${txtrst}"
+  fi
+  cd $START_DIR
+}
+
+function git_delete_tag {
+  local repo="$1"
+  local tag="$2"
+  git clone $repo
+  git tag -d $tag
+  git push origin :refs/tags/$tag
+}
+
+function git_delete_branch {
+  local branch="$1"
+  git push origin --delete $branch
+  git checkout master
+  git branch -D $branch
+}
+
+function git_find_big_files {
+  git rev-list --objects --all \
+  | git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' \
+  | sed -n 's/^blob //p' \
+  | sort --numeric-sort --key=2 \
+  | cut -c 1-12,41- \
+  | $(command -v gnumfmt || echo numfmt) --field=2 --to=iec-i --suffix=B --padding=7 --round=nearest
+}
+
+function bb_latest_commit_time {
+  local repo="$1"
+  local committer="$(curl -ks -u $USER:$SSHPASS   \
+  "$BB_API/projects/tadms/repos/$repo/commits?until=master&limit=1" \
+  | jq -r .values[].committer.name)"
+  local commit_id="$(curl -ks -u $USER:$SSHPASS   \
+  "$BB_API/projects/tadms/repos/$repo/commits?until=master&limit=1" \
+  | jq -r .values[].id)"
+  local epoch_ms="$(curl -ks -u $USER:$SSHPASS   \
+  "$BB_API/projects/tadms/repos/$repo/commits?until=master&limit=1" \
+  | jq -r .values[].committerTimestamp)"
+  local epoch="$(($epoch_ms/1000))"
+  local date="$(date -r $epoch)"
+  local commiter_email="$(euid_to_mail $committer | cut -f2 -d" ")"
+
+  echo "$commit_id | $repo | $committer | $commiter_email | $date"
+}
+
+function bb_find_open_pull_reqests {
+  local tmp_file="/tmp/bbprs.txt"
+  repos="$@"
+  if [ -f "$tmp_file" ] ; then rm $tmp_file ; fi
+  touch $tmp_file
+  echo "Repo | Open Pull Requests" >> $tmp_file
+  echo "---- | ------------------" >> $tmp_file
+  for repo in $repos ; do
+    local pr_count="$(curl -ks -u $USER:$SSHPASS $BB_API/projects/tadms/repos/$repo/pull-requests | jq .size)"
+      if [ "$pr_count" != "0" ] ; then
+        echo "$repo | $pr_count" >> $tmp_file
+      fi
+  done
+  cat $tmp_file | column -t -s"|" | lolcat
+}
+
+function bb_open_prs {
+  local repos="$@"
+  for repo in $repos ; do
+    local pr_count="$(curl -ks -u $USER:$SSHPASS $BB_API/projects/tadms/repos/$repo/pull-requests | jq .size)"
+      if [ "$pr_count" != "0" ] ; then
+        local emails="$(curl -ks -u $USER:$SSHPASS $BB_API/projects/tadms/repos/$repo/pull-requests | jq -r .values[].reviewers[].user.emailAddress)"
+        echo "${TXTGRN}${repo}${TXTRST} | Open PR Count: [$pr_count]"
+        echo "------------------------------------------------------------------"
+        echo "$emails"
+        echo ""
+      fi
+  done
+}

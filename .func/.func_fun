@@ -1,0 +1,102 @@
+#!/bin/bash
+
+################################################################################
+# Fun Aliases/Functions
+################################################################################
+alias magic8ball='curl -s https://yesno.wtf/api/ | jq -r .answer'
+alias joke='curl -s https://geek-jokes.sameerkumar.website/api'
+alias ron='curl -s https://ron-swanson-quotes.herokuapp.com/v2/quotes | jq .[]'
+alias scarn='curl -ks https://michael-scott-quotes.herokuapp.com/quote | jq .quote'
+alias chuck='curl -s https://api.chucknorris.io/jokes/random | jq .value'
+alias flip_coin='if (( $RANDOM % 2 )) ; then echo "$(tput bold)HEADS" ; else echo "$(tput bold)TAILS" ; fi'
+
+function do_nothing {
+  local nothing=""
+}
+
+function rps {
+  local player_choice=""
+  local computer_choice="$((1 + RANDOM % 3))"
+  echo "[1] Rock"
+  echo "[2] Paper"
+  echo "[3] Scissors"
+  echo ""
+  echo -n "Enter your choice [1,2,3]: "
+  echo ""
+  sleep 1
+  read player_choice
+
+  echo ""
+
+  if [ "$player_choice" == "1" ] ; then
+    echo   "You chose Rock"
+    sleep 1
+    if [ "$computer_choice" == "1" ] ; then
+      echo "Computer chose Rock"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 3)DRAW"
+    elif [ "$computer_choice" == "2" ] ; then
+      echo "Computer chose Paper"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 1)YOU LOSE"
+    elif [ "$computer_choice" == "3" ] ; then
+      echo "Computer chose Scissors"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 2)YOU WIN"
+    fi
+
+  elif [ "$player_choice" == "2" ] ; then
+    echo "You chose Paper"
+    sleep 1
+    if [ "$computer_choice" == "1" ] ; then
+      echo "Computer chose Rock"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 2)YOU WIN"
+    elif [ "$computer_choice" == "2" ] ; then
+      echo "Computer chose Paper"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 3)DRAW"
+    elif [ "$computer_choice" == "3" ] ; then
+      echo "Computer chose Scissors"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 1)YOU LOSE"
+    fi
+
+  elif [ "$player_choice" == "3" ] ; then
+    echo "You chose Scissors"
+    sleep 1
+    if [ "$computer_choice" == "1" ] ; then
+      echo "Computer chose Rock"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 1)YOU LOSE"
+    elif [ "$computer_choice" == "2" ] ; then
+      echo "Computer chose Paper"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 2)YOU WIN"
+    elif [ "$computer_choice" == "3" ] ; then
+      echo "Computer chose Scissors"
+      echo ""
+      sleep 1
+      echo "$(tput setaf 3)DRAW"
+    fi
+
+  else
+    echo "Invaid choice: [$player_choice]"
+    return 0
+
+  fi
+}
+
+
+function cowsayer {
+  local cow_dir="/usr/local/homebrew/Cellar/cowsay/3.04/share/cows"
+  for i in $(ls $cow_dir | sort) ; do cowsay -f $i "Cow: $i" ; done
+}

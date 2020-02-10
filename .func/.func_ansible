@@ -1,0 +1,94 @@
+#!/bin/bash
+
+################################################################################
+# Ansible Functions
+################################################################################
+function job_launch {
+  ID="$1"
+  EXTRA_VARS="foo=bar"
+  tower-cli job launch \
+  --job-template=$ID\
+  --monitor -vvv \
+  --extra-vars="$EXTRA_VARS"
+}
+
+function vault_encrypt {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage:"
+    echo "------"
+    echo "  ansible_vault_encrypt <var_name> <secret_to_encrypt> <vault_password_file>"
+    echo ""
+    echo "Example:"
+    echo "--------"
+    echo "  ansible_vault_encrypt svc_acct_passwd Sup3rSecr3tPassw0rd2Encrypt /tmp/vault.txt"
+    return 0
+  fi
+  local var_name="$1"
+  local var_secret_to_encrypt="$2"
+  local vault_password_file="$3"
+  export ANSIBLE_VAULT_PASSWORD_FILE="$vault_password_file"
+  ansible-vault encrypt_string \
+    --output - \
+    -n $var_name $var_secret_to_encrypt
+}
+
+function vault_decrypt {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage:"
+    echo "------"
+    echo "  ansible_vault_decrypt <var_name> <var_file> <vault_password_file>"
+    echo ""
+    echo "Example:"
+    echo "--------"
+    echo "  ansible_vault_decrypt svc_acct_passwd roles/my-app-role/defaults/main.yml /tmp/vault.txt"
+    return 0
+  fi
+  local var_name="$1"
+  local var_file="$2"
+  local vault_password_file="$3"
+  ansible localhost \
+    -m debug \
+    -a "var=${var_name}" \
+    -e @"${var_file}" \
+    --vault-password-file=${vault_password_file}
+}
+
+
+ansible_env(){
+  export ANSIBLE_HOME="/ALL/ansible"
+  export ANSIBLE_ROLES_PATH="$ANSIBLE_HOME/roles"
+  export ANSIBLE_INVENTORY="$ANSIBLE_HOME/inventory"
+  export ANSIBLE_CONFIG="$ANSIBLE_HOME/cfg/ansible.cfg"
+  export ANSIBLE_VAULT_PASSWORD_FILE="$ANSIBLE_HOME/.vault_pass"
+  echo '123456789' > $ANSIBLE_VAULT_PASSWORD_FILE
+  chmod 0640 $ANSIBLE_VAULT_PASSWORD_FILE
+}
+
+
+function ansible_groups {
+  if [ "$1" == "-l" ] || [ "$1" == "--list" ]; then
+    local groups="$(ansible localhost -m debug -a 'var=groups')"
+  else
+    local groups="$(ansible localhost -m debug -a 'var=groups.keys()' \
+      | tail -n +3 \
+      | head -n -2 \
+      | sed 's/[", ]//g' \
+      | sort)"
+  fi
+  echo "$groups"
+}
+
+function ansible_host_vars {
+  if [ -z $1 ] ; then
+    echo "ERROR - Hostname required"
+    echo "Example: show_me_ansible_host_vars localhost"
+  else
+    local host=$1
+    ansible-inventory --host=$host
+  fi
+}
+
+function ansible_group_members {
+  local group=$1
+  ansible-inventory --graph $group
+}

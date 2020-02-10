@@ -1,0 +1,42 @@
+#!/bin/bash
+
+################################################################################
+# PCF Functions
+################################################################################
+function cf_login {
+  local api="api.pivotalcf.com"
+  local user="me"
+  local password="secret"
+
+  cf login \
+    -a $api \
+    -u $user \
+    -p $password \
+    --skip-ssl-validation
+}
+
+function cf_list_apps {
+  local env="$1"
+  local space="$env"
+  cf target -s $space > /dev/null
+  cf apps | grep 'blue\|green' | cut -f1 -d" " | cut -f1 -d"-" | sort -u
+}
+
+function determine_active_color {
+  local app_name_env="$1"
+  local active_app_instance="$(cf apps | grep -E "${app_name_env}.*started.*1/1" | cut -f1 -d" ")"
+  local determined_color="${active_app_instance##*-}"
+  echo "${determined_color}"
+}
+
+
+function cf_delete_app {
+
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage: cf_delete_app <app_name> <space>"
+    echo ""
+  fi
+  local app_name="$1"
+  local space=$2
+  cf target -s $space && cf delete $app_name-$space-green -r -f && cf delete $app_name-$space-blue -r -f
+}

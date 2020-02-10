@@ -1,0 +1,154 @@
+#!/bin/bash
+
+################################################################################
+# Git Functions
+################################################################################
+
+function git_clone {
+  local repo="$1"
+  cd $GIT_HOME
+  git clone https://github.com/$GH_ORG/$repo.git
+  cd $repo
+}
+
+function gpom {
+  if [ ! -z "$1" ] ; then
+    local msg="$@"
+  else
+    local msg="changes"
+  fi
+  echo "Local Directory:  $(pwd)"
+  echo "Remote Origin:    $(git remote get-url --push origin)"
+  echo "Commit Message:   \"$msg\""
+  echo ""
+  echo "Are you sure? [y/n]"
+  read answer
+  echo ""
+  if [ "$answer" == "y" ] ; then
+    git add .
+    git status
+    git commit -am "$msg"
+    git push origin master
+  else
+    echo "Exiting..."
+    return 0
+  fi
+}
+
+function git_fork_it_fresh {
+  local repo="$1"
+  local user="$USER"
+  local github_api="https:/github.tadms.com/api/v3"
+  curl -X DELETE -s -u $user:$GITHUB_TOKEN $github_api/repos/${user}/${repo} >/dev/null
+  sleep 1
+  curl -X POST -s -u $user:$GITHUB_TOKEN $github_api/repos/$GH_ORG/${repo}/forks | jq .html_url
+}
+
+
+################################################################################
+# GitHub API Functions
+################################################################################
+function gh_list_repos {
+  curl -s -u $USER:$GITHUB_TOKEN $GITHUB_API/user/repos \
+  | jq -r .[].clone_url \
+  | sort
+}
+
+function gh_create_repo {
+  curl -X POST -s -u $USER:$GITHUB_TOKEN \
+  --data "$REPO_JSON" \
+  $GITHUB_API/user/repos
+}
+
+function gh_get_repo {
+  local repo_name="$1"
+  curl -s -u $USER:$GITHUB_TOKEN \
+  $GITHUB_API/repos/$USER/$repo_name
+}
+
+function gh_edit_repo {
+  local repo_name="$REPO_NAME"
+  curl -X PATCH -s -u $USER:$GITHUB_TOKEN \
+  --data "$REPO_JSON" \
+  $GITHUB_API/repos/$USER/$repo_name
+}
+
+function gh_delete_repo {
+  local repo_name="$REPO_NAME"
+  curl -X DELETE -s -u $USER:$GITHUB_TOKEN \
+  $GITHUB_API/repos/$USER/$repo_name
+}
+
+function gh_create_topics {
+  local repo_name="$1"
+  curl -X PUT -s -u $USER:$GITHUB_TOKEN \
+  --data "{"names": ["topic1","topic2"]}" \
+  -H "Accept: application/vnd.github.v3+json" \
+  $GITHUB_API/repos/$USER/$repo_name/topics
+}
+
+function gh_add_colab {
+  local repo=$1
+  local user=$2
+  curl -X PUT \
+  -ks \
+  -u $USER:$SSHPASS \
+  -d '{"permission":"admin"}' \
+  "https://github.tadms.com/api/v3/repos/$GH_ORG/$repo/collaborators/$user"
+}
+
+function gh_raw_curl {
+  local org=$1
+  local repo=$2
+  local file=$3
+  curl -s -u $USER:$SSHASS -H Accept:application/vnd.github.v3.raw https://github.tadms.com/api/v3/repos/$org/$repo/contents/$file
+}
+
+# Hack to replicate BitBucket "automatic cascade merging" functionality.
+function gh_kaskade {
+  GIT_HOST="github.com"
+  GIT_ORG="$USER"
+  GIT_URLS="https://$GIT_HOST/$GIT_ORG/my-app"
+
+  local relver="$1"
+  local start_branch=$(git rev-parse --abbrev-ref HEAD)
+  local release_branches=$(git branch -a \
+    | grep -v "*" \
+    | grep release \
+    | sed 's/remotes\/origin\///' \
+    | sed "s/^[ \t]*//" \
+    | sort -Vu \
+    | sed -n "/$relver/,\$p" )
+
+  declare -a cascade_branches_array=($release_branches master)
+
+  for (( i = 0; i < ${#cascade_branches_array[*]}; ++ i )) ; do
+    local current_branch="${cascade_branches_array[$i]}"
+    local next_branch="${cascade_branches_array[$i+1]}"
+    echo "---------------------------------------------------------------------"
+    echo "${TXTGRN}${current_branch}${TXTRST} --> ${TXTYLW}${next_branch}${TXTRST}"
+    echo "---------------------------------------------------------------------"
+    git checkout $next_branch --force && git merge $current_branch --no-edit
+    echo ""
+  done
+  git checkout $start_branch
+  git push origin --all
+}
+
+
+function gh_generate_repo_list {
+  local user="$USER"
+  local token="$GITHUB_TOKEN"
+  local gh_api="$GH_API"
+  local repo_json="$(curl -ks -u $user:$token $gh_api/user/repos)"
+  local repos=$(echo $repo_json \
+    | jq -r .[].name \
+    | grep '^svc-')
+  for repo in $repos ; do
+    local repo_name="$(echo $repo_json \
+      | jq -r ".[] | select(.name==\"$repo\") | .name")"
+    local repo_url="$(echo $repo_json \
+      | jq -r ".[] | select(.name==\"$repo\") | .clone_url")"
+    echo "$repo_name => $repo_url"
+  done
+}

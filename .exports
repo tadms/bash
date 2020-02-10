@@ -1,0 +1,34 @@
+#!/bin/bash
+################################################################################
+# Exports
+################################################################################
+
+# Shhh... Secret Stuff
+if [ -f $BASH_HOME/.secret ] ; then
+  . $BASH_HOME/.secret
+fi
+
+# Environment stuff
+export PS1='\[\033[01;32m\]\u@MAC\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\[\e[0;35m\]$(git_branch)\[\e[0m\] $ '
+export PS1_CLOUD='\[\033[01;35m\]\u@CLOUDBOX\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\[\e[0;35m\]$(git_branch)\[\e[0m\] $'
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/sbin:/opt/X11/bin:/Users/$USER:/usr/local/homebrew/bin:/Users/$USER/Library/Python/2.7/bin"
+export PROMPT_COMMAND='echo -ne "\033];"LOCAL - $PWD"\007"'
+export ANSIBLE_NOCOWS=1
+export GREP_OPTIONS='--color=auto'
+export GREP_COLOR='1;92'
+export LSCOLORS='GxFxCxDxBxegedabagaced'
+export SSH_OPTS="-q -o LogLevel=error -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+# Directories
+export BASH_HOME="/ALL/bash"
+export GIT_HOME="/ALL/bash"
+export ANSIBLE_HOME="/ALL/ansible"
+
+# GitHub
+export GH_ORG="tadms"
+
+# APIs
+export GITHUB_API="https://api.github.com"
+export BB_API="https://bitbucket.com/rest/api/1.0"
+export TEAMCITY_API="http://teamcity.com:8111/teamcity/httpAuth/app/rest"
+export ARTIFACTORY_API="http://artifactory.com/artifactory/api/storage"

@@ -1,0 +1,91 @@
+#!/bin/bash
+
+################################################################################
+# Utility Functions
+################################################################################
+function git_branch {
+  git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
+}
+
+function mkcd {
+  local dirname=$1
+  mkdir -p $dirname
+  cd "$dirname"
+}
+
+function to_upper {
+  tr a-z A-Z
+}
+
+function to_lower {
+  tr A-Z a-z
+}
+
+function trim_indent {
+  sed "s/^[ \t]*//"
+}
+
+function show_progress {
+  local count=$1
+  local total=$2
+  echo -ne "Processing [$count/$total]"\\r
+}
+
+function helper {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage: "
+    return 0
+  fi
+}
+
+function tellnet {
+  HOST=$1
+  PORT=$2
+  echo exit | telnet $HOST $PORT
+}
+
+function parse_yaml {
+   local prefix=$2
+   local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+   sed -ne "s|^\($s\):|\1|" \
+        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
+        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
+   awk -F$fs '{
+      indent = length($1)/2;
+      vname[indent] = $2;
+      for (i in vname) {if (i > indent) {delete vname[i]}}
+      if (length($3) > 0) {
+         vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+         printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+      }
+   }'
+}
+
+function murder {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage: murder <process_name>"
+    return 0
+  fi
+  PROCESS_NAME="$1"
+  PIDS="$(ps -A | pgrep -i $PROCESS_NAME | cut -f1 -d" " | sort -r)"
+  if [ -z "$PIDS" ] ; then
+    echo "No pid found.  Nothing to murder."
+    return 0
+  else
+    for pid in $PIDS ; do
+      echo "Killing PID: $pid"
+      sudo kill -9 $pid
+    done
+  fi
+}
+
+
+function hl {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage: some_command | hl <string_to_highlight>"
+    return 0
+  fi
+	local match="$1"
+  local highlighted_match="${TXTRED}${match}${TXTRST}"
+  sed "s/$match/$highlighted_match/g"
+}

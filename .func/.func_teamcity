@@ -1,0 +1,59 @@
+#!/bin/bash
+
+################################################################################
+# TeamCity Functions
+################################################################################
+function tc_curl_xml {
+  ENDPOINT="$1"
+  echo "curl -ks -u $USER:{SSHPASS} $TEAMCITY_API/$ENDPOINT | xq ."
+  curl -ks -u $USER:$SSHPASS $TEAMCITY_API/$1 | xq -x . > /tmp/a.xml
+  cat /tmp/a.xml
+}
+
+function tc_curl_json {
+  ENDPOINT="$1"
+  echo "curl -ks -u $USER:{SSHPASS} $TEAMCITY_API/$ENDPOINT | xq ."
+  curl -ks -u $USER:$SSHPASS $TEAMCITY_API/$1 | xq .
+}
+
+function tc_add_parameter {
+  BUILD_ID=$1
+  curl -ks -u $USER:$SSHPASS \
+    --request PUT \
+    $TEAMCITY_API/buildTypes/${BUILD_ID}/parameters/system.environment \
+    --data @prop.xml \
+    --header "Content-Type: application/xml"
+}
+
+function list_vcs_roots {
+  gett $TEAMCITY_API/vcs-roots/?locator=count:10000 \
+  | xq .
+}
+
+function update_teamcity_vcs_branch_spec {
+  local vcs_id="$1"
+  curl -ks -X PUT -u $USER:$SSHPASS  \
+  $TEAMCITY_API/vcs-roots/id:${vcs_id}/properties/teamcity:branchSpec \
+  --data "%vcs_branch_specification%" \
+  --header "Content-Type: text/plain"
+}
+
+function allow_tags_in_branch_spec {
+  local vcs_id="$1"
+  curl -ks -X PUT -u $USER:$SSHPASS \
+  $TEAMCITY_API/vcs-roots/id:${vcs_id}/properties/reportTagRevisions \
+  --data "true" \
+  --header "Content-Type: text/plain"
+}
+
+
+function trigger_build {
+  ID="$1"
+  COMMENT="Triggered by $USER"
+  XML="<build personal=\"false\" branchName=\"master\"><buildType id=\"$ID\"/><comment><text>$COMMENT</text></comment></build>"
+
+  curl -ks -X POST -u $USER:$SSHPASS  \
+  $TEAMCITY_API/buildQueue \
+  --data "$XML" \
+  --header "Content-Type:application/xml"
+}

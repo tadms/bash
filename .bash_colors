@@ -1,0 +1,62 @@
+#!/bin/bash
+################################################################################
+# Colors
+################################################################################
+export TXTUND=$(tput sgr 0 1)                 # Underline
+export TXTBLD=$(tput bold)                    # Bold
+export TXTRED=$(tput setaf 1)                 # Red
+export TXTGRN=$(tput setaf 2)                 # Green
+export TXTYLW=$(tput setaf 3)                 # Yellow
+export TXTBLU=$(tput setaf 4)                 # Blue
+export TXTPUR=$(tput setaf 5)                 # Purple
+export TXTCYN=$(tput setaf 6)                 # Cyan
+export TXTWHT=$(tput setaf 7)                 # White
+export TXTRST=$(tput sgr0)                    # Text reset
+export LINE=$(printf "%0.s-" {1..80})         # Line ---
+export LINE_BOLD=$(printf "%0.s=" {1..80})    # Line ===
+export LINE_XBOLD=$(printf "%0.s#" {1..80})   # Line ###
+
+function echo_underline {
+  local msg="$@"
+  echo "${TXTUND}${msg}${TXTRST}"
+}
+
+function echo_bold {
+  local msg="$@"
+  echo "${TXTBLD}${msg}${TXTRST}"
+}
+
+function echo_red {
+  local msg="$@"
+  echo "${TXTRED}${msg}${TXTRST}"
+}
+
+function echo_green {
+  local msg="$@"
+  echo "${TXTGRN}${msg}${TXTRST}"
+}
+
+function echo_yellow {
+  local msg="$@"
+  echo "${TXTYLW}${msg}${TXTRST}"
+}
+
+function echo_blue {
+  local msg="$@"
+  echo "${TXTBLU}${msg}${TXTRST}"
+}
+
+function echo_purple {
+  local msg="$@"
+  echo "${TXTPUR}${msg}${TXTRST}"
+}
+
+function echo_cyan {
+  local msg="$@"
+  echo "${TXTCYN}${msg}${TXTRST}"
+}
+
+function echo_white {
+  local msg="$@"
+  echo "${TXTWHT}${msg}${TXTRST}"
+}

@@ -1,0 +1,60 @@
+#!/bin/bash
+
+################################################################################
+# MAC Stuff
+################################################################################
+
+function install_mac_packages {
+  # Install brew
+  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+
+  # Install sshpass
+  brew install https://raw.githubusercontent.com/kadwanev/bigboybrew/master/Library/Formula/sshpass.rb
+
+  # Install pip
+  sudo easy_install pip
+
+  # Install Ansible
+  sudo pip install ansible
+
+  # Install PCF CLI
+  brew install cloudfoundry/tap/cf-cli
+
+  # Install more cool packages
+  brew install jq wget telnet tree cowsay nmap
+
+  # Make key repeat speed super duper fast (log out and back in to see effect)
+  defaults write -g InitialKeyRepeat -int 10
+  defaults write -g KeyRepeat -int 2
+  defaults write -g ApplePressAndHoldEnabled -bool false
+
+  # make airport symlink
+  ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/bin/airport
+}
+
+
+function chrome {
+  murder chrome
+  sleep 1
+  echo "Launching Google Chrome"
+  open -a "Google Chrome"
+}
+
+function outlook {
+  murder outlook
+  sleep 1
+  echo "Launching Microsoft Outlook..."
+  open -a "Microsoft Outlook"
+}
+
+function teams {
+  murder teams
+  sleep 1
+  echo "Launching Microsoft Teams..."
+  open -a "Microsoft Teams"
+}
+
+function bounce_office {
+  outlook
+  teams
+}

@@ -1,0 +1,68 @@
+#!/bin/bash
+
+################################################################################
+# SSH Functions
+################################################################################
+function go {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage:"
+    echo "------"
+    echo "  go <hostname>"
+    echo ""
+    return 0
+  fi
+
+  local hostname=$1
+  case $hostname in
+    # Put your prod host/IP patterns here...
+    prodhostname*|prodip*|prod.*)
+    iterm_profile Danger
+    iterm_tab_label "ssh://$hostname"
+    iterm_tab_color red
+    ;;
+    # otherwise assume nonprod host
+    *)
+    iterm_profile NP
+    iterm_tab_label "ssh://$hostname"
+    iterm_tab_color purple
+    ;;
+  esac
+  iterm_tab_label "ssh://$hostname"
+  which sshpass >/dev/null
+  # If you have sshpass installed, and SSHPASS defined...
+  if [ $? -eq 0 ] && [ ! -z "$SSHPASS" ] ; then
+    echo "${TXTPUR}sshpass -p \${SSHPASS} $SSH_OPTS $USER@$hostname ${TXTRST}"
+    sshpass -p ${SSHPASS} ssh $SSH_OPTS $USER@$hostname
+  else
+    echo "${TXTPUR}ssh $SSH_OPTS $USER@$hostname ${TXTRST}"
+    ssh $SSH_OPTS $USER@$hostname
+  fi
+
+  # After exiting the SSH session...
+  iterm_tab_color grey
+  iterm_profile Default
+  iterm_tab_label LOCAL
+}
+
+
+# This is basically a 99 cent version of Ansible
+function run_on_servers {
+  if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    echo "Usage: run_on_servers <ip_list> <command>"
+    echo ""
+    echo "Example: run_on_servers ip_list.txt 'tail /var/log/messages'"
+    return 0
+  fi
+  TXTPUR=$(tput setaf 5)
+  TXTRST=$(tput sgr0)
+  local host_file=$1
+  local cmd=$2
+  local user="$USER"
+  local pass="$SSHPASS"
+  local hosts=$(cat $host_file)
+  for host in $hosts ; do
+    echo "$TXTPUR------$host-------$TXTRST"
+    sshpass -p $pass ssh -q -o LogLevel=error -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $user@$host "$cmd"
+    echo ""
+  done
+}

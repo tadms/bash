@@ -1,0 +1,86 @@
+#!/bin/bash
+
+################################################################################
+# LDAP Functions
+################################################################################
+
+function acct_to_mail_info {
+  local acct="$1"
+  ldapsearch -h ldap.corp.com \
+    -p 389 \
+    -x \
+    -D CN=$USER,OU=people,o=corp \
+    -w $SSHPASS \
+    '(uid='"$acct"')' \
+    | grep 'mail:\|fullName\|title:\|KLocDesc:\|KWorkCity:\|KWorkAdd1\|manager:' \
+    | column -t -s:
+}
+
+function acct_to_mail {
+  local acct="$1"
+  ldapsearch -h ldap.corp.com \
+    -p 389 \
+    -x \
+    -D CN=$USER,OU=people,o=corp \
+    -w $SSHPASS \
+    '(uid='"$acct"')' \
+    | grep 'mail:'
+}
+
+function mail_to_acct {
+  local email="$1"
+  ldapsearch -h ldap.corp.com \
+    -p 389 \
+    -x \
+    -D CN=$USER,OU=people,o=corp \
+    -w $SSHPASS \
+    '(mail='"$email"')' \
+    | grep 'uid:' \
+    | cut -f2 -d" "
+}
+
+function acct_lookup {
+  local acct="$1"
+  ldapsearch -h ldap.corp.com \
+  -p 389 \
+  -x \
+  -D CN=$USER,OU=people,o=corp \
+  -w $SSHPASS \
+  '(uid='"$acct"')'
+}
+
+function group_to_accts {
+  local group="$1"
+  ldapsearch -h ldap.corp.com \
+    -p 389 \
+    -x \
+    -D CN=$USER,OU=people,o=corp \
+    -w $SSHPASS \
+    '(groupMembership='"$group"')'
+}
+
+function group_members {
+  local group="$1"
+  local member_accts="$(ldapsearch -h ldap.corp.com \
+  -p 389 \
+  -x \
+  -D CN=$USER,OU=people,o=corp \
+  -w $SSHPASS \
+  '(groupMembership='"cn=$group,ou=People,o=corp"')' \
+  | grep uid: \
+  | cut -f2 -d" ")"
+  for i in $member_accts ; do
+    local mail="$(acct_to_mail $i | cut -f2 -d" ")"
+    echo "$i - $mail"
+  done
+}
+
+function acct_groups {
+  acct="$1"
+  acct_lookup $acct \
+  | grep groupMembership \
+  | cut -f2 -d" " \
+  | cut -f1 -d"," \
+  | cut -f2 -d"=" \
+  | sort
+}

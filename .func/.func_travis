@@ -1,0 +1,23 @@
+#!/bin/bash
+
+################################################################################
+# Ansible Functions
+################################################################################
+TRAVIS_API="https://travis.com/api"
+
+function travis_setup {
+  travis endpoint --set-default --api-endpoint $TRAVIS_API
+}
+
+function travis_login {
+  travis login \
+  --api-endpoint $TRAVIS_API \
+  --insecure \
+  -u $USER \
+  --github-token $GITHUB_TOKEN
+  travis whoami
+}
+
+function travis_token {
+  travis token | cut -f5 -d" "
+}
